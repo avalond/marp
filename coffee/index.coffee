@@ -19,7 +19,7 @@ class EditorStates
   lastRendered: {}
 
   _lockChangedStatus: false
-  _imageDirectories: null
+  _imageDirectory: null
 
   constructor: (@codeMirror, @preview) ->
     @initializeEditor()
@@ -83,7 +83,7 @@ class EditorStates
 
       .on 'did-finish-load', (e) =>
         @preview.send 'currentPage', 1
-        @preview.send 'setImageDirectories', @_imageDirectories if @_imageDirectories
+        @preview.send 'setImageDirectory', @_imageDirectory
         @preview.send 'render', @codeMirror.getValue()
 
   openLink: (link) =>
@@ -102,12 +102,12 @@ class EditorStates
 
     @codeMirror.on 'cursorActivity', (cm) => window.setTimeout (=> @refreshPage()), 5
 
-  setImageDirectories: (directories) =>
+  setImageDirectory: (directory) =>
     if @previewInitialized
-      @preview.send 'setImageDirectories', directories
+      @preview.send 'setImageDirectory', directory
       @preview.send 'render', @codeMirror.getValue()
     else
-      @_imageDirectories = directories
+      @_imageDirectory = directory
 
   insertImage: (filePath) => @codeMirror.replaceSelection("![](#{filePath})\n")
 
@@ -175,6 +175,11 @@ do ->
 
     return splitPoint
 
+  setEditorConfig = (editorConfig) ->
+    editor = $(editorStates.codeMirror?.getWrapperElement())
+    editor.css('font-family', editorConfig.fontFamily) if editor?
+    editor.css('font-size', editorConfig.fontSize) if editor?
+
   $('.pane-splitter')
     .mousedown ->
       draggingSplitter = true
@@ -231,7 +236,7 @@ do ->
       editorStates.codeMirror.clearHistory()
       editorStates._lockChangedStatus = false
 
-    .on 'setImageDirectories', (directories) -> editorStates.setImageDirectories directories
+    .on 'setImageDirectory', (directories) -> editorStates.setImageDirectory directories
 
     .on 'save', (fname, triggerOnSucceeded = null) ->
       MdsRenderer.sendToMain 'writeFile', fname, editorStates.codeMirror.getValue(), triggerOnSucceeded
@@ -258,6 +263,7 @@ do ->
       else
         editorStates.preview.openDevTools()
 
+    .on 'setEditorConfig', (editorConfig) -> setEditorConfig editorConfig
     .on 'setSplitter', (spliiterPos) -> setSplitter spliiterPos
     .on 'setTheme', (theme) -> editorStates.updateGlobalSetting '$theme', theme
     .on 'themeChanged', (theme) -> MdsRenderer.sendToMain 'themeChanged', theme

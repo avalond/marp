@@ -32,6 +32,11 @@ module.exports = class MdsMarkdown
       'markdown-it-mark': {}
       'markdown-it-emoji':
         shortcuts: {}
+      'markdown-it-katex': {}
+
+    twemoji:
+      callback: (icon, opts) -> "#{opts.base}#{opts.size}#{Path.sep}#{icon}#{opts.ext}"
+      base: Path.resolve(__dirname, '../../images/twemoji/') + Path.sep
 
   @createMarkdownIt: (opts, plugins) ->
     md = markdownIt(opts)
@@ -73,25 +78,27 @@ module.exports = class MdsMarkdown
             $t.attr("data-#{prop}", val)
             $t.find('footer.slide_footer:last').text(val) if prop == 'footer'
 
-          # Detect only elements
+          # Detect "only-***" elements
           inner = $t.find('.slide > .slide_inner')
+          innerContents = inner.children().filter(':not(base, link, meta, noscript, script, style, template, title)')
 
-          heads = $(inner).children(':header').length
-          $t.addClass('only-headings') if heads > 0 && $(inner).children().length == heads
+          headsLength = inner.children(':header').length
+          $t.addClass('only-headings') if headsLength > 0 && innerContents.length == headsLength
 
-          quotes = $(inner).children('blockquote').length
-          $t.addClass('only-blockquotes') if quotes > 0 && $(inner).children().length == quotes
+          quotesLength = inner.children('blockquote').length
+          $t.addClass('only-blockquotes') if quotesLength > 0 && innerContents.length == quotesLength
 
       md.parsed = mdElm.html()
 
   rulers: []
-  imageDirs: []
   settings: new MdsMdSetting
   afterRender: null
+  twemojiOpts: {}
 
   constructor: (settings) ->
     opts         = extend({}, MdsMarkdown.default.options, settings?.options || {})
     plugins      = extend({}, MdsMarkdown.default.plugins, settings?.plugins || {})
+    @twemojiOpts = extend({}, MdsMarkdown.default.twemoji, settings?.twemoji || {})
     @afterRender = settings?.afterRender || null
     @markdown    = MdsMarkdown.createMarkdownIt.call(@, opts, plugins)
     @afterCreate()
@@ -105,8 +112,8 @@ module.exports = class MdsMarkdown
       html_block: rules.html_block
 
     extend rules,
-      emoji: (token, idx) ->
-        twemoji.parse(token[idx].content)
+      emoji: (token, idx) =>
+        twemoji.parse(token[idx].content, @twemojiOpts)
 
       hr: (token, idx) =>
         ruler.push token[idx].map[0] if ruler = @_rulers
@@ -143,13 +150,7 @@ module.exports = class MdsMarkdown
   renderers:
     image: (tokens, idx, options, env, self) ->
       src = decodeURIComponent(tokens[idx].attrs[tokens[idx].attrIndex('src')][1])
-
-      return tokens[idx].attrs[tokens[idx].attrIndex('src')][1] = src if exist(src)
-
-      if @imageDirs?.length > 0
-        for dir in @imageDirs
-          imgPath = Path.resolve(dir, src)
-          return tokens[idx].attrs[tokens[idx].attrIndex('src')][1] = imgPath if exist(imgPath)
+      tokens[idx].attrs[tokens[idx].attrIndex('src')][1] = src if exist(src)
 
     html_block: (tokens, idx, options, env, self) ->
       {content} = tokens[idx]
